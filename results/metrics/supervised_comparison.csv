@@ -1,0 +1,5 @@
+modelo,accuracy,precision,recall,f1,tempo_treino_s,melhores_parametros,roc_auc
+KNN_padronizado,0.8436018957345972,0.7317073170731707,0.8450704225352113,0.7843137254901961,1.9045461200003047,"{'model__metric': 'euclidean', 'model__n_neighbors': 11, 'model__weights': 'distance'}",0.9182595573440643
+Arvore_Decisao,0.8293838862559242,0.7215189873417721,0.8028169014084507,0.76,1.0035633529914776,"{'ccp_alpha': 0.005, 'criterion': 'gini', 'max_depth': 5, 'min_samples_leaf': 1}",0.8752012072434608
+KNN_sem_padronizacao,0.8246445497630331,0.7125,0.8028169014084507,0.7549668874172185,0.15545511999516748,"{'metric': 'manhattan', 'n_neighbors': 5, 'weights': 'distance'}",0.9002515090543259
+MLP_RNA,0.8151658767772512,0.7051282051282052,0.7746478873239436,0.738255033557047,1.205096877005417,"{'model__activation': 'tanh', 'model__alpha': 0.0001, 'model__hidden_layer_sizes': (32, 16), 'model__learning_rate_init': 0.01}",0.8847082494969818
