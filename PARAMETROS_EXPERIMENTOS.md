@@ -1,6 +1,8 @@
 # Guia de parâmetros para experimentos
 
-Este arquivo resume os pontos do projeto que podem ser alterados depois para testar resultados diferentes. O código atual não foi modificado; a ideia aqui é servir como mapa de consulta para futuros experimentos.
+Este arquivo resume os pontos do projeto que podem ser alterados depois para testar resultados diferentes. Serve como mapa de consulta para futuros experimentos.
+
+**Nota (protocolo T2):** o K-Means em `src/unsupervised.py` usa apenas o conjunto de **treino**, com `scaler.transform` (sem refit no dataset completo), alinhado ao protocolo treino/validação/teste.
 
 O projeto usa principalmente `pandas`, `numpy`, `matplotlib`, `seaborn`, `joblib` e `scikit-learn`. A maior parte dos parâmetros que mudam resultados está em `scikit-learn`, especialmente em divisão dos dados, padronização, busca de hiperparâmetros, KNN, Árvore de Decisão, MLP/RNA, K-Means e PCA.
 

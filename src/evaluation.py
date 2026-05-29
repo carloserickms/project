@@ -86,6 +86,7 @@ def save_comparison_table(results: list[dict], metrics_dir: Path, figures_dir: P
     for result in results:
         row = {
             "modelo": result["model_name"],
+            "f1_validacao": result["validation_f1_weighted"],
             "accuracy": result["test_metrics"]["accuracy"],
             "precision": result["test_metrics"]["precision"],
             "recall": result["test_metrics"]["recall"],
@@ -126,11 +127,12 @@ def automatic_interpretation(comparison: pd.DataFrame, unsupervised_summary: dic
     """
     best = comparison.iloc[0]
     worst = comparison.iloc[-1]
+    k_nc = unsupervised_summary.get("k_equals_n_classes", 2)
     return (
-        f"O melhor desempenho supervisionado foi obtido por {best['modelo']}, com F1={best['f1']:.3f} "
+        f"O melhor desempenho supervisionado no teste foi obtido por {best['modelo']}, com F1={best['f1']:.3f} "
         f"e accuracy={best['accuracy']:.3f}. O menor F1 pertenceu a {worst['modelo']} "
-        f"({worst['f1']:.3f}), indicando diferença prática entre as hipóteses aprendidas. "
-        f"No K-Means, o melhor K por silhouette foi {unsupervised_summary['best_k_silhouette']} "
-        f"com silhouette={unsupervised_summary['best_silhouette']:.3f}; valores próximos de zero "
-        "sugerem separação fraca, enquanto valores mais altos indicam estrutura geométrica mais coerente."
+        f"({worst['f1']:.3f}). No K-Means (treino), o melhor K por silhouette foi "
+        f"{unsupervised_summary['best_k_silhouette']} (silhouette={unsupervised_summary['best_silhouette']:.3f}, "
+        f"ARI={unsupervised_summary.get('best_k_ari', unsupervised_summary.get('adjusted_rand_index', 0)):.3f}); "
+        f"com K={k_nc} (número de classes), ARI={unsupervised_summary.get('k_n_classes_ari', 0):.3f}."
     )

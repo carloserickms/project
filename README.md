@@ -1,6 +1,6 @@
 # Projeto de Aprendizagem de Máquina - Biodegradabilidade
 
-Projeto acadêmico completo de Inteligência Artificial com análise exploratória, pré-processamento, modelos supervisionados e K-Means.
+Projeto acadêmico (T2) com análise exploratória, pré-processamento, modelos supervisionados (KNN, árvore, MLP) e K-Means.
 
 ## Como executar
 
@@ -17,33 +17,51 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Em alguns sistemas o comando pode ser:
+Em alguns sistemas o comando pode ser `python3 main.py`.
 
-```bash
-python3 main.py
-```
+Isso regenera `results/figures/`, `results/metrics/`, `results/models/` e `report/relatorio.md`.
 
 ## Estrutura
 
-- `biodeg.csv`: dataset sem cabeçalho, separado por `;`.
-- `main.py`: orquestra todo o pipeline.
-- `src/`: módulos de carga, pré-processamento, treino, avaliação e visualização.
-- `results/figures/`: gráficos da EDA, matrizes de confusão, ROC, árvore e K-Means.
-- `results/metrics/`: estatísticas, métricas, comparações e interpretações automáticas.
-- `results/models/`: modelos treinados e árvore em DOT.
-- `report/relatorio.md`: relatório acadêmico gerado automaticamente.
+| Caminho | Descrição |
+|---------|-----------|
+| `biodeg.csv` | Dataset (sem cabeçalho, separador `;`) |
+| `main.py` | Orquestra o pipeline |
+| `src/` | Módulos de carga, pré-processamento, treino, avaliação e visualização |
+| `docs/` | Enunciado, critérios, descrição do dataset, apêndice GenAI |
+| `results/figures/` | Gráficos (gerados ao executar) |
+| `results/metrics/` | CSV/JSON de métricas |
+| `results/models/` | Modelos `.joblib` e árvore em DOT |
+| `report/relatorio.md` | Relatório acadêmico (seções a–i do enunciado) |
+| `PARAMETROS_EXPERIMENTOS.md` | Guia de hiperparâmetros ajustáveis |
 
 ## Metodologia resumida
 
-O código infere automaticamente a estrutura do dataset, assume a última coluna como classe e trata os atributos anteriores como preditores. A divisão treino/validação/teste é estratificada e usa `random_state=42`.
+- Última coluna = classe (RB/NRB); atributos anteriores = descritores QSAR.
+- Divisão estratificada treino/validação/teste (~60/20/20), `random_state=42`.
+- `GridSearchCV` (5-fold) **somente no treino**; validação para monitoramento; **teste avaliado uma vez**.
+- K-Means no **treino**, com scaler calibrado no treino (sem vazamento do teste).
 
-Modelos supervisionados:
+## Checklist de entrega (grupo)
 
-- KNN com e sem padronização, múltiplos valores de `k` e métricas de distância.
-- Árvore de Decisão com critérios Gini/Entropy, controle de profundidade e poda por `ccp_alpha`.
-- MLPClassifier como Rede Neural Artificial, com busca sobre arquitetura, ativação, regularização e taxa de aprendizado.
+- [ ] Código-fonte (este repositório) com instruções de execução
+- [ ] Relatório em **PDF** (`report/relatorio.pdf`)
+- [ ] Slides da apresentação oral
+- [ ] Apresentação (até 15 min) + arguição
+- [ ] Documento de participação crítica (Teams), quando aplicável
 
-Aprendizagem não supervisionada:
+### Gerar PDF do relatório
 
-- K-Means com múltiplos valores de K.
-- Método do cotovelo, silhouette score, PCA 2D e comparação com rótulos reais por ARI/NMI.
+Com [Pandoc](https://pandoc.org/) instalado:
+
+```bash
+pandoc report/relatorio.md -o report/relatorio.pdf --resource-path=.:report
+```
+
+Revise antes da entrega: capa (nomes do grupo, data) e redação final em `report/relatorio.md`.
+
+## Documentação complementar
+
+- [docs/dataset_biodeg.md](docs/dataset_biodeg.md) — origem e significado do dataset
+
+
