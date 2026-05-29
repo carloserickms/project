@@ -1,12 +1,30 @@
 from __future__ import annotations
 
+import matplotlib
+
+matplotlib.use("Agg")
+
 from pathlib import Path
 
 import pandas as pd
 
+from src.console_output import (
+    print_artifacts,
+    print_banner,
+    print_footer,
+    print_kmeans_summary,
+    print_step,
+    print_supervised_table,
+)
 from src.data_loader import infer_dataset_profile, load_dataset
 from src.evaluation import automatic_interpretation, save_comparison_table
 from src.preprocessing import clean_dataset, prepare_splits
+from src.reporting import (
+    compare_knn_scaling,
+    format_classification_summary,
+    interpret_kmeans,
+    REQUIRED_MODELS,
+)
 from src.supervised import train_supervised_models
 from src.unsupervised import run_kmeans_analysis
 from src.utils import as_serializable, ensure_directories, save_json, save_text, set_global_seed
@@ -15,6 +33,7 @@ from src.visualization import generate_eda_artifacts
 
 ROOT = Path(__file__).resolve().parent
 DATASET_PATH = ROOT / "biodeg.csv"
+DOCS_DIR = ROOT / "docs"
 RESULTS_DIR = ROOT / "results"
 FIGURES_DIR = RESULTS_DIR / "figures"
 METRICS_DIR = RESULTS_DIR / "metrics"
@@ -22,116 +41,290 @@ MODELS_DIR = RESULTS_DIR / "models"
 REPORT_DIR = ROOT / "report"
 
 
-def build_report(profile: dict, eda: dict, split_info: dict, comparison: pd.DataFrame, supervised_results: list[dict], unsupervised: dict, interpretation: str) -> str:
+def _load_doc_fragment(filename: str) -> str:
+    path = DOCS_DIR / filename
+    if not path.exists():
+        return f"_(Arquivo {filename} não encontrado.)_"
+    return path.read_text(encoding="utf-8")
+
+
+def build_report(
+    profile: dict,
+    eda: dict,
+    split_info: dict,
+    comparison: pd.DataFrame,
+    supervised_results: list[dict],
+    unsupervised: dict,
+    interpretation: str,
+    kmeans_interpretation: str,
+    class_names: list[str],
+) -> str:
     best = comparison.iloc[0]
     class_dist = ", ".join([f"{cls}: {count}" for cls, count in profile["distribuicao_classes"].items()])
-    params_text = "\n".join(
+    dataset_doc = _load_doc_fragment("dataset_biodeg.md")
+
+    required = [r for r in supervised_results if r["model_name"] in REQUIRED_MODELS]
+    optional_knn = next((r for r in supervised_results if r["model_name"] == "KNN_sem_padronizacao"), None)
+
+    params_required = "\n".join(
         [
-            f"- **{item['model_name']}**: melhores hiperparâmetros `{item['best_params']}`, "
-            f"F1 teste={item['test_metrics']['f1']:.3f}, tempo de treino={item['train_time']:.2f}s."
-            for item in supervised_results
+            f"- **{item['model_name']}**: hiperparâmetros `{item['best_params']}`; "
+            f"F1 validação={item['validation_f1_weighted']:.3f}, F1 teste={item['test_metrics']['f1']:.3f}."
+            for item in required
         ]
     )
-    comparison_md = comparison.drop(columns=["melhores_parametros"], errors="ignore").to_markdown(index=False)
-    return f"""# Relatório de Aprendizagem de Máquina - Biodegradabilidade
 
-## 1. Introdução
+    per_class_sections = "\n\n".join(format_classification_summary(r, class_names) for r in required)
 
-Este trabalho implementa um pipeline clássico de Aprendizagem de Máquina para classificar amostras do dataset `biodeg.csv`. O objetivo é comparar algoritmos supervisionados com diferentes vieses indutivos e investigar, por K-Means, se os atributos apresentam agrupamentos naturais coerentes com os rótulos reais.
+    comparison_cols = [c for c in comparison.columns if c != "melhores_parametros"]
+    comparison_md = comparison[comparison_cols].to_markdown(index=False)
 
-## 2. Dataset
+    knn_scaling_text = compare_knn_scaling(supervised_results)
+    optional_knn_block = ""
+    if optional_knn:
+        optional_knn_block = (
+            f"\n\n### Experimento complementar: KNN sem padronização\n\n"
+            f"{knn_scaling_text}\n\n"
+            f"Este experimento não substitui o KNN obrigatório; ilustra o efeito da escala dos atributos."
+        )
 
-O arquivo foi carregado sem cabeçalho, com separador `;`, e a última coluna foi tratada automaticamente como variável alvo. Foram identificadas {profile['n_linhas']} linhas, {profile['n_atributos']} atributos preditivos e {profile['n_colunas_total']} colunas totais.
+    balance_text = (
+        f"A razão entre classes é {profile['razao_desbalanceamento']:.2f} "
+        f"({'há desbalanceamento moderado' if profile['ha_desbalanceamento'] else 'distribuição equilibrada'}). "
+        "Não foi aplicado oversampling/SMOTE: a divisão estratificada preserva proporções e as métricas "
+        "ponderadas (F1 weighted no GridSearch, relatório por classe no teste) permitem comparar modelos "
+        "sem alterar a distribuição original. Pesos de classe (`class_weight`) podem ser testados em "
+        "experimentos futuros se a classe minoritária (RB) continuar com recall baixo."
+    )
 
-As classes inferidas foram: {', '.join(profile['classes'])}. A distribuição observada foi {class_dist}. A razão entre a maior e a menor classe foi {profile['razao_desbalanceamento']:.2f}, portanto há {'indício de desbalanceamento' if profile['ha_desbalanceamento'] else 'distribuição relativamente equilibrada'}.
+    return f"""# Relatório de Aprendizagem de Máquina — Biodegradabilidade (T2)
 
-Todos os atributos preditivos foram avaliados como numéricos após coerção controlada. O perfil geral indica uma base tabular numérica, com escalas heterogêneas entre atributos, o que justifica padronização para algoritmos sensíveis a distância ou gradiente. Foram encontrados {profile['duplicados']} registros duplicados e {profile['valores_nulos_total']} valores nulos no carregamento bruto. A análise por IQR indicou {profile['total_outliers_iqr']} ocorrências potenciais de outliers, mantidas por poderem representar compostos quimicamente plausíveis.
+**Disciplina:** Inteligência Artificial   
+**Grupo:** Grupo 1  
+**Integrantes:** Carlos Erick;, Eduardo Américo; Elias Reis; Hugo Gabriel  
 
-## 3. Pré-processamento
 
-O pré-processamento separou atributos e rótulo, codificou a classe por `LabelEncoder`, converteu atributos para valores numéricos, removeu duplicados e imputou eventuais ausências pela mediana. A divisão adotada foi estratificada, com proporções aproximadas de {split_info['treino']:.0%} treino, {split_info['validacao']:.0%} validação e {split_info['teste']:.0%} teste, usando `random_state={split_info['random_state']}`.
+---
 
-A padronização por `StandardScaler` foi aplicada nos modelos que dependem de magnitude. No KNN, atributos em escalas maiores dominam o cálculo de distância. Na MLP, escalas incompatíveis dificultam a otimização por gradiente e podem atrasar convergência.
+## a) Apresentação do dataset
 
-## 4. Modelos Supervisionados
+{dataset_doc}
 
-Foram avaliados KNN, Árvore de Decisão e uma Rede Neural Artificial do tipo MLP. O KNN testou diferentes valores de vizinhos, métricas de distância e pesos, incluindo comparação explícita com e sem padronização. A árvore testou critérios Gini/Entropy, profundidades máximas, folhas mínimas e `ccp_alpha`, permitindo controle de complexidade e poda. A MLP testou arquiteturas com uma ou duas camadas ocultas, funções `relu` e `tanh`, taxas de aprendizado e regularização L2.
+### Perfil observado nesta execução
 
-Na MLP, a função de ativação introduz não linearidade. O `early_stopping` foi usado para reduzir overfitting, interrompendo o treino quando a validação interna deixa de melhorar. A convergência depende de escala, taxa de aprendizado e complexidade da arquitetura.
+- Instâncias após limpeza: **{profile['n_linhas']}**
+- Atributos preditivos: **{profile['n_atributos']}**
+- Classes: {', '.join(profile['classes'])} — distribuição: {class_dist}
+- Duplicados removidos na limpeza: diferença entre perfil bruto ({profile['perfil_bruto']['duplicados']}) e limpo ({profile['duplicados']})
+- Outliers potenciais (IQR, soma por atributo): **{profile['total_outliers_iqr']}** — mantidos por plausibilidade química
 
-{params_text}
+Figuras de EDA: `results/figures/histograms.png`, `boxplots.png`, `correlation_heatmap.png`, `class_distribution.png`, `pca_initial_2d.png`.
 
-Tabela resumida:
+---
+
+## b) Análise e preparação dos dados
+
+1. **Coerção numérica** com `errors='coerce'` e imputação pela **mediana** (robusta a outliers).
+2. **Remoção de duplicatas** para evitar vazamento de instâncias idênticas entre conjuntos.
+3. **Codificação do alvo** com `LabelEncoder` (NRB/RB → inteiros).
+4. **Padronização** (`StandardScaler`) no treino para KNN e MLP (via `Pipeline`); árvore usa atributos brutos.
+5. **Balanceamento:** {balance_text}
+
+---
+
+## c) Protocolo experimental
+
+| Conjunto | Proporção | Uso |
+|----------|-----------|-----|
+| Treino | ~{split_info['treino']:.0%} | `GridSearchCV` (5-fold) para hiperparâmetros; ajuste do K-Means |
+| Validação | ~{split_info['validacao']:.0%} | Monitoramento (`validation_f1_weighted`); **não** usado para escolher hiperparâmetros |
+| Teste | ~{split_info['teste']:.0%} | Avaliação final **única** dos classificadores |
+
+- `random_state={split_info['random_state']}`, divisão **estratificada**.
+- O conjunto de **teste não participa** do treino, da busca de hiperparâmetros nem do K-Means.
+- K-Means: apenas **treino**, rótulos ignorados no `fit`; scaler do treino supervisionado (sem `fit` no teste).
+- Métrica principal de busca: **F1 ponderado** (`f1_weighted`).
+
+---
+
+## d) Modelagem supervisionada
+
+Modelos obrigatórios: **KNN**, **Árvore de Decisão**, **RNA (MLPClassifier)**.
+
+{params_required}
+
+### Justificativa das escolhas
+
+- **KNN:** variação de `k`, pesos uniforme/distance e métricas euclidiana/manhattan; padronização via pipeline.
+- **Árvore:** critérios Gini/entropy, profundidade, `min_samples_leaf`, poda `ccp_alpha` — controle de complexidade e interpretabilidade.
+- **MLP:** arquiteturas pequenas (1–2 camadas), `relu`/`tanh`, L2 (`alpha`), `early_stopping` para reduzir overfitting.
+
+{optional_knn_block}
+
+---
+
+## e) Modelagem não supervisionada (K-Means)
+
+- Escopo: conjunto de **{unsupervised.get('data_scope', 'treino')}** apenas.
+- Valores de K testados: {unsupervised['tested_k']}.
+- Escolha de K por **silhouette**: K={unsupervised['best_k_silhouette']} (silhouette={unsupervised['best_silhouette']:.3f}).
+- Comparação com número de classes: K={unsupervised['k_equals_n_classes']} (ARI={unsupervised['k_n_classes_ari']:.3f}, NMI={unsupervised['k_n_classes_nmi']:.3f}).
+
+Figuras: `kmeans_elbow.png`, `kmeans_silhouette.png`, `kmeans_pca_clusters.png`.
+
+{kmeans_interpretation}
+
+---
+
+## f) Resultados
+
+### Tabela comparativa (teste e validação)
 
 {comparison_md}
 
-## 5. Aprendizagem Não Supervisionada
+### Métricas por classe (conjunto de teste)
 
-O K-Means foi executado ignorando os rótulos. Foram testados K={unsupervised['tested_k']}, avaliando inércia pelo método do cotovelo e `silhouette score` como medida de separação geométrica. O melhor K por silhouette foi {unsupervised['best_k_silhouette']}, com silhouette={unsupervised['best_silhouette']:.3f}.
+{per_class_sections}
 
-A comparação entre clusters e classes reais foi salva em `results/metrics/kmeans_cluster_vs_class.csv`. O ARI foi {unsupervised['adjusted_rand_index']:.3f} e o NMI foi {unsupervised['normalized_mutual_info']:.3f}. Esses indicadores quantificam quanto a estrutura não supervisionada coincide com a rotulagem conhecida.
+### Figuras de avaliação
 
-## 6. Comparação de Resultados
+- Comparação de métricas: `results/figures/model_comparison_metrics.png`
+- Matrizes de confusão e ROC: `results/figures/confusion_matrix_*.png`, `roc_curve_*.png`
+- Árvore (profundidade limitada na figura): `results/figures/decision_tree.png`
+
+Variância explicada PCA (EDA): {eda['pca_variance_ratio']}.
+
+---
+
+## g) Análise crítica comparativa
 
 {interpretation}
 
-Em termos metodológicos, o KNN é simples e competitivo quando a geometria dos dados favorece vizinhança local, mas tem custo de predição maior e depende fortemente de escala. A Árvore de Decisão é mais interpretável e pouco sensível à normalização, porém tende a overfitting quando cresce sem restrição. A MLP possui maior flexibilidade funcional, mas exige mais cuidado com padronização, regularização, épocas e convergência.
+{knn_scaling_text}
 
-A comparação entre KNN padronizado e não padronizado evidencia o impacto do pré-processamento. Quando há diferença relevante, ela confirma que a escala dos atributos influencia diretamente algoritmos baseados em distância. A árvore atua como contraponto interpretável porque divide atributos por limiares e não por distância euclidiana.
+**Síntese:** O melhor modelo supervisionado no teste foi **{best['modelo']}** (F1={best['f1']:.3f}). A árvore oferece interpretabilidade por limiares; a MLP tem maior flexibilidade mas exigiu mais regularização; o KNN beneficiou-se da padronização. No não supervisionado, silhouette e ARI podem divergir (K ótimo geométrico ≠ alinhamento com RB/NRB), o que reforça que a fronteira de decisão supervisionada não coincide com clusters esféricos globais.
 
-## 7. Conclusão
+**Limitações:** partição única treino/val/teste; descritores sem nomenclatura química no CSV; possível desbalanceamento afetando recall de RB; K-Means assume clusters convexos e de variância similar.
 
-O melhor modelo neste experimento foi **{best['modelo']}**, com F1={best['f1']:.3f} no teste. A principal limitação é que o estudo depende de uma única partição treino/validação/teste; como melhoria futura, recomenda-se validação cruzada aninhada, seleção de atributos, análise química dos descritores e calibração probabilística.
+---
 
-Os resultados do K-Means ajudam a discutir se a separação supervisionada decorre de grupos naturalmente bem definidos. Caso ARI/NMI sejam baixos, a classificação depende de fronteiras mais complexas do que simples agrupamentos globulares.
+## h) Conclusão
 
-## 8. Uso de IA Generativa
+O trabalho cumpriu o protocolo de comparação entre KNN, árvore e RNA no problema de biodegradabilidade, com K-Means no mesmo conjunto de atributos (treino). As principais dificuldades foram interpretar baixo ARI no clustering e conciliar métricas globais com desbalanceamento moderado. Como evolução: validação cruzada aninhada, `class_weight`, seleção de atributos e análise química dos descritores mais relevantes na árvore.
 
-IA generativa foi utilizada como apoio para estruturar o código, organizar o relatório e redigir interpretações técnicas iniciais. O grupo declara compreender o conteúdo gerado, incluindo decisões de pré-processamento, funcionamento dos algoritmos, métricas calculadas e limitações metodológicas.
+---
 
-## Artefatos Gerados
+## i) Referências
+
+1. Mansouri, K., et al. (2013). Quantitative structure–activity relationship models for ready biodegradability of chemicals. *Journal of Chemical Information and Modeling*, 53(4), 867–878.
+2. UCI Machine Learning Repository — datasets QSAR / biodegradation.
+3. Pedregosa, F., et al. (2011). Scikit-learn: Machine Learning in Python. *JMLR*, 12, 2825–2830.
+4. Documentação: [scikit-learn](https://scikit-learn.org/), [pandas](https://pandas.pydata.org/).
+
+---
+
+## Apêndice — Uso de IA generativa
+
+IA generativa foi utilizada como apoio para estruturar código, documentar parâmetros e redigir seções iniciais do relatório. O grupo revisou e compreende as decisões metodológicas.
+
+Prompts registrados em: [`docs/prompts_genai.md`](../docs/prompts_genai.md).
+
+---
+
+## Artefatos gerados
 
 - Figuras: `results/figures/`
 - Métricas: `results/metrics/`
-- Modelos: `results/models/`
-- Variância explicada PCA inicial: {eda['pca_variance_ratio']}
+- Modelos: `results/models/` (`.joblib`, `decision_tree.dot`)
 """
 
 
 def main() -> None:
+    import sys
+    import time
+
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
+    t0 = time.perf_counter()
+    total_steps = 8
+
+    print_banner("Pipeline ML — Biodegradabilidade", f"Dataset: {DATASET_PATH.name}")
+
     set_global_seed()
     ensure_directories([FIGURES_DIR, METRICS_DIR, MODELS_DIR, REPORT_DIR])
 
+    print_step(1, total_steps, "Carregando dataset", "run")
     raw_df = load_dataset(DATASET_PATH)
     raw_profile = infer_dataset_profile(raw_df)
     clean_df = clean_dataset(raw_df)
     profile = infer_dataset_profile(clean_df)
     profile["perfil_bruto"] = raw_profile
-    save_json(as_serializable(profile), METRICS_DIR / "dataset_profile.json")
+    print_step(1, total_steps, f"Dataset: {profile['n_linhas']} instâncias, {profile['n_atributos']} atributos")
 
+    print_step(2, total_steps, "Salvando perfil do dataset", "run")
+    save_json(as_serializable(profile), METRICS_DIR / "dataset_profile.json")
+    print_step(2, total_steps, "Perfil salvo em results/metrics/")
+
+    print_step(3, total_steps, "Gerando EDA (figuras e CSVs)", "run")
     eda = generate_eda_artifacts(clean_df, FIGURES_DIR, METRICS_DIR)
+    print_step(3, total_steps, "EDA concluída")
+
+    print_step(4, total_steps, "Dividindo treino / validação / teste", "run")
     splits = prepare_splits(clean_df)
     class_names = list(splits["label_encoder"].classes_)
+    si = splits["split_info"]
+    print_step(
+        4,
+        total_steps,
+        f"Split {si['treino']:.0%} / {si['validacao']:.0%} / {si['teste']:.0%} (estratificado)",
+    )
 
+    print_step(5, total_steps, "Treinando modelos supervisionados (GridSearchCV)", "run")
     supervised_results = train_supervised_models(splits, class_names, FIGURES_DIR, MODELS_DIR)
     supervised_json = {
         item["model_name"]: {key: value for key, value in item.items() if key != "model"}
         for item in supervised_results
     }
     save_json(as_serializable(supervised_json), METRICS_DIR / "supervised_results.json")
+    print_step(5, total_steps, "KNN, Árvore, MLP (+ KNN sem escala) treinados")
 
+    print_step(6, total_steps, "Executando K-Means", "run")
     comparison = save_comparison_table(supervised_results, METRICS_DIR, FIGURES_DIR)
     unsupervised = run_kmeans_analysis(splits, FIGURES_DIR, METRICS_DIR)
     save_json(as_serializable(unsupervised), METRICS_DIR / "kmeans_summary.json")
+    print_step(6, total_steps, f"K-Means: melhor K={unsupervised['best_k_silhouette']} (silhouette)")
+
+    print_step(7, total_steps, "Gerando interpretações e relatório", "run")
+    crosstab_path = METRICS_DIR / "kmeans_cluster_vs_class.csv"
+    crosstab = pd.read_csv(crosstab_path, index_col=0) if crosstab_path.exists() else None
 
     interpretation = automatic_interpretation(comparison, unsupervised)
+    kmeans_interpretation = interpret_kmeans(unsupervised, crosstab)
     save_text(interpretation, METRICS_DIR / "automatic_interpretation.txt")
-    report = build_report(profile, eda, splits["split_info"], comparison, supervised_results, unsupervised, interpretation)
-    save_text(report, REPORT_DIR / "relatorio.md")
+    save_text(kmeans_interpretation, METRICS_DIR / "kmeans_interpretation.txt")
 
-    print("Pipeline concluído.")
-    print(f"Melhor modelo: {comparison.iloc[0]['modelo']} | F1={comparison.iloc[0]['f1']:.3f}")
-    print("Relatório: report/relatorio.md")
+    report = build_report(
+        profile,
+        eda,
+        splits["split_info"],
+        comparison,
+        supervised_results,
+        unsupervised,
+        interpretation,
+        kmeans_interpretation,
+        class_names,
+    )
+    save_text(report, REPORT_DIR / "relatorio.md")
+    print_step(7, total_steps, "relatorio.md atualizado")
+
+    print_supervised_table(comparison)
+    print_kmeans_summary(unsupervised)
+    print_artifacts()
+    print_footer(time.perf_counter() - t0)
 
 
 if __name__ == "__main__":
