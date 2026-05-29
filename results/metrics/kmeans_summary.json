@@ -1,4 +1,5 @@
 {
+  "data_scope": "treino",
   "tested_k": [
     2,
     3,
@@ -9,27 +10,42 @@
     8,
     9
   ],
-  "best_k_silhouette": 4,
-  "best_silhouette": 0.20240204383882682,
-  "best_inertia": 32880.86463387615,
-  "adjusted_rand_index": 0.002979537107710299,
-  "normalized_mutual_info": 0.13153527536975,
+  "n_classes": 2,
+  "best_k_silhouette": 3,
+  "best_silhouette": 0.1858853465505343,
+  "best_inertia": 21367.14615498927,
+  "best_k_ari": 0.01263016855639572,
+  "best_k_nmi": 0.08984265455661955,
+  "k_equals_n_classes": 2,
+  "k_n_classes_silhouette": 0.18119993886740496,
+  "k_n_classes_ari": 0.03851928307219741,
+  "k_n_classes_nmi": 0.10101499328903095,
+  "adjusted_rand_index": 0.01263016855639572,
+  "normalized_mutual_info": 0.08984265455661955,
   "pca_variance_ratio": [
-    0.1804865803310537,
-    0.122603652816729
+    0.18058516289582283,
+    0.12444204446014226
   ],
   "cluster_class_table": {
     "NRB": {
-      "0": 15,
-      "1": 369,
-      "2": 265,
-      "3": 49
+      "0": 210,
+      "1": 178,
+      "2": 30
     },
     "RB": {
-      "0": 0,
-      "1": 330,
-      "2": 21,
-      "3": 3
+      "0": 181,
+      "1": 29,
+      "2": 2
+    }
+  },
+  "cluster_class_table_k_n_classes": {
+    "NRB": {
+      "0": 219,
+      "1": 199
+    },
+    "RB": {
+      "0": 185,
+      "1": 27
     }
   }
 }
