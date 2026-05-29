@@ -1,70 +1,245 @@
-# Relatório de Aprendizagem de Máquina - Biodegradabilidade
+# Relatório de Aprendizagem de Máquina — Biodegradabilidade (T2)
 
-## 1. Introdução
+**Disciplina:** Inteligência Artificial   
+**Grupo:** Grupo 1  
+**Integrantes:** Carlos Erick;, Eduardo Américo; Elias Reis; Hugo Gabriel  
 
-Este trabalho implementa um pipeline clássico de Aprendizagem de Máquina para classificar amostras do dataset `biodeg.csv`. O objetivo é comparar algoritmos supervisionados com diferentes vieses indutivos e investigar, por K-Means, se os atributos apresentam agrupamentos naturais coerentes com os rótulos reais.
 
-## 2. Dataset
+---
 
-O arquivo foi carregado sem cabeçalho, com separador `;`, e a última coluna foi tratada automaticamente como variável alvo. Foram identificadas 1052 linhas, 41 atributos preditivos e 42 colunas totais.
+## a) Apresentação do dataset
 
-As classes inferidas foram: NRB, RB. A distribuição observada foi NRB: 698, RB: 354. A razão entre a maior e a menor classe foi 1.97, portanto há indício de desbalanceamento.
+# Dataset biodeg (biodegradabilidade)
 
-Todos os atributos preditivos foram avaliados como numéricos após coerção controlada. O perfil geral indica uma base tabular numérica, com escalas heterogêneas entre atributos, o que justifica padronização para algoritmos sensíveis a distância ou gradiente. Foram encontrados 0 registros duplicados e 0 valores nulos no carregamento bruto. A análise por IQR indicou 1876 ocorrências potenciais de outliers, mantidas por poderem representar compostos quimicamente plausíveis.
+## Problema
 
-## 3. Pré-processamento
+Classificar compostos químicos quanto à **biodegradabilidade** segundo critérios de prontidão para biodegradação. Trata-se de um problema de **classificação binária** em que cada instância é um composto descrito por descritores moleculares numéricos (abordagem QSAR).
 
-O pré-processamento separou atributos e rótulo, codificou a classe por `LabelEncoder`, converteu atributos para valores numéricos, removeu duplicados e imputou eventuais ausências pela mediana. A divisão adotada foi estratificada, com proporções aproximadas de 60% treino, 20% validação e 20% teste, usando `random_state=42`.
+## Rótulos
 
-A padronização por `StandardScaler` foi aplicada nos modelos que dependem de magnitude. No KNN, atributos em escalas maiores dominam o cálculo de distância. Na MLP, escalas incompatíveis dificultam a otimização por gradiente e podem atrasar convergência.
+| Classe | Significado |
+|--------|-------------|
+| **RB** | Ready Biodegradable — composto considerado prontamente biodegradável |
+| **NRB** | Not Ready Biodegradable — composto não classificado como prontamente biodegradável |
 
-## 4. Modelos Supervisionados
+No arquivo `biodeg.csv`, a variável alvo está na **última coluna**, sem cabeçalho.
 
-Foram avaliados KNN, Árvore de Decisão e uma Rede Neural Artificial do tipo MLP. O KNN testou diferentes valores de vizinhos, métricas de distância e pesos, incluindo comparação explícita com e sem padronização. A árvore testou critérios Gini/Entropy, profundidades máximas, folhas mínimas e `ccp_alpha`, permitindo controle de complexidade e poda. A MLP testou arquiteturas com uma ou duas camadas ocultas, funções `relu` e `tanh`, taxas de aprendizado e regularização L2.
+## Atributos
 
-Na MLP, a função de ativação introduz não linearidade. O `early_stopping` foi usado para reduzir overfitting, interrompendo o treino quando a validação interna deixa de melhorar. A convergência depende de escala, taxa de aprendizado e complexidade da arquitetura.
+- **41 descritores moleculares** numéricos (colunas 1 a 41).
+- No repositório local os atributos são nomeados `feature_01` … `feature_41`, pois o CSV não traz nomes químicos individuais.
+- Representam propriedades estruturais/físico-químicas usadas em modelagem QSAR (escalas heterogêneas).
 
-- **KNN_padronizado**: melhores hiperparâmetros `{'model__metric': 'euclidean', 'model__n_neighbors': 11, 'model__weights': 'distance'}`, F1 teste=0.784, tempo de treino=1.90s.
-- **KNN_sem_padronizacao**: melhores hiperparâmetros `{'metric': 'manhattan', 'n_neighbors': 5, 'weights': 'distance'}`, F1 teste=0.755, tempo de treino=0.16s.
-- **Arvore_Decisao**: melhores hiperparâmetros `{'ccp_alpha': 0.005, 'criterion': 'gini', 'max_depth': 5, 'min_samples_leaf': 1}`, F1 teste=0.760, tempo de treino=1.00s.
-- **MLP_RNA**: melhores hiperparâmetros `{'model__activation': 'tanh', 'model__alpha': 0.0001, 'model__hidden_layer_sizes': (32, 16), 'model__learning_rate_init': 0.01}`, F1 teste=0.738, tempo de treino=1.21s.
+## Formato do arquivo
 
-Tabela resumida:
+- Arquivo: `biodeg.csv`
+- Separador: `;` (ponto e vírgula)
+- Sem linha de cabeçalho
+- Aproximadamente **1050+ instâncias** após limpeza (remoção de duplicatas)
 
-| modelo               |   accuracy |   precision |   recall |       f1 |   tempo_treino_s |   roc_auc |
-|:---------------------|-----------:|------------:|---------:|---------:|-----------------:|----------:|
-| KNN_padronizado      |   0.843602 |    0.731707 | 0.84507  | 0.784314 |         1.90455  |  0.91826  |
-| Arvore_Decisao       |   0.829384 |    0.721519 | 0.802817 | 0.76     |         1.00356  |  0.875201 |
-| KNN_sem_padronizacao |   0.824645 |    0.7125   | 0.802817 | 0.754967 |         0.155455 |  0.900252 |
-| MLP_RNA              |   0.815166 |    0.705128 | 0.774648 | 0.738255 |         1.2051   |  0.884708 |
+## Origem e referência
 
-## 5. Aprendizagem Não Supervisionada
+Dataset amplamente usado em estudos de QSAR e disponível em repositórios de aprendizado de máquina (UCI Machine Learning Repository, conjunto relacionado à biodegradabilidade de compostos orgânicos).
 
-O K-Means foi executado ignorando os rótulos. Foram testados K=[2, 3, 4, 5, 6, 7, 8, 9], avaliando inércia pelo método do cotovelo e `silhouette score` como medida de separação geométrica. O melhor K por silhouette foi 4, com silhouette=0.202.
+**Referência sugerida para o relatório:**
 
-A comparação entre clusters e classes reais foi salva em `results/metrics/kmeans_cluster_vs_class.csv`. O ARI foi 0.003 e o NMI foi 0.132. Esses indicadores quantificam quanto a estrutura não supervisionada coincide com a rotulagem conhecida.
+- Mansouri, K., et al. (2013). *Quantitative structure–activity relationship models for ready biodegradability of chemicals.* Journal of Chemical Information and Modeling, 53(4), 867–878. (contexto QSAR de biodegradabilidade)
+- UCI Machine Learning Repository — conjuntos QSAR / biodegradation (consultar a página do dataset utilizado pelo professor da disciplina)
 
-## 6. Comparação de Resultados
+## Uso neste projeto
 
-O melhor desempenho supervisionado foi obtido por KNN_padronizado, com F1=0.784 e accuracy=0.844. O menor F1 pertenceu a MLP_RNA (0.738), indicando diferença prática entre as hipóteses aprendidas. No K-Means, o melhor K por silhouette foi 4 com silhouette=0.202; valores próximos de zero sugerem separação fraca, enquanto valores mais altos indicam estrutura geométrica mais coerente.
+O pipeline assume automaticamente que a última coluna é o alvo e que todas as demais são preditores numéricos. Não há variáveis categóricas brutas além do rótulo.
 
-Em termos metodológicos, o KNN é simples e competitivo quando a geometria dos dados favorece vizinhança local, mas tem custo de predição maior e depende fortemente de escala. A Árvore de Decisão é mais interpretável e pouco sensível à normalização, porém tende a overfitting quando cresce sem restrição. A MLP possui maior flexibilidade funcional, mas exige mais cuidado com padronização, regularização, épocas e convergência.
 
-A comparação entre KNN padronizado e não padronizado evidencia o impacto do pré-processamento. Quando há diferença relevante, ela confirma que a escala dos atributos influencia diretamente algoritmos baseados em distância. A árvore atua como contraponto interpretável porque divide atributos por limiares e não por distância euclidiana.
+### Perfil observado nesta execução
 
-## 7. Conclusão
+- Instâncias após limpeza: **1052**
+- Atributos preditivos: **41**
+- Classes: NRB, RB — distribuição: NRB: 698, RB: 354
+- Duplicados removidos na limpeza: diferença entre perfil bruto (3) e limpo (0)
+- Outliers potenciais (IQR, soma por atributo): **1876** — mantidos por plausibilidade química
 
-O melhor modelo neste experimento foi **KNN_padronizado**, com F1=0.784 no teste. A principal limitação é que o estudo depende de uma única partição treino/validação/teste; como melhoria futura, recomenda-se validação cruzada aninhada, seleção de atributos, análise química dos descritores e calibração probabilística.
+Figuras de EDA: `results/figures/histograms.png`, `boxplots.png`, `correlation_heatmap.png`, `class_distribution.png`, `pca_initial_2d.png`.
 
-Os resultados do K-Means ajudam a discutir se a separação supervisionada decorre de grupos naturalmente bem definidos. Caso ARI/NMI sejam baixos, a classificação depende de fronteiras mais complexas do que simples agrupamentos globulares.
+---
 
-## 8. Uso de IA Generativa
+## b) Análise e preparação dos dados
 
-IA generativa foi utilizada como apoio para estruturar o código, organizar o relatório e redigir interpretações técnicas iniciais. O grupo declara compreender o conteúdo gerado, incluindo decisões de pré-processamento, funcionamento dos algoritmos, métricas calculadas e limitações metodológicas.
+1. **Coerção numérica** com `errors='coerce'` e imputação pela **mediana** (robusta a outliers).
+2. **Remoção de duplicatas** para evitar vazamento de instâncias idênticas entre conjuntos.
+3. **Codificação do alvo** com `LabelEncoder` (NRB/RB → inteiros).
+4. **Padronização** (`StandardScaler`) no treino para KNN e MLP (via `Pipeline`); árvore usa atributos brutos.
+5. **Balanceamento:** A razão entre classes é 1.97 (há desbalanceamento moderado). Não foi aplicado oversampling/SMOTE: a divisão estratificada preserva proporções e as métricas ponderadas (F1 weighted no GridSearch, relatório por classe no teste) permitem comparar modelos sem alterar a distribuição original. Pesos de classe (`class_weight`) podem ser testados em experimentos futuros se a classe minoritária (RB) continuar com recall baixo.
 
-## Artefatos Gerados
+---
+
+## c) Protocolo experimental
+
+| Conjunto | Proporção | Uso |
+|----------|-----------|-----|
+| Treino | ~60% | `GridSearchCV` (5-fold) para hiperparâmetros; ajuste do K-Means |
+| Validação | ~20% | Monitoramento (`validation_f1_weighted`); **não** usado para escolher hiperparâmetros |
+| Teste | ~20% | Avaliação final **única** dos classificadores |
+
+- `random_state=42`, divisão **estratificada**.
+- O conjunto de **teste não participa** do treino, da busca de hiperparâmetros nem do K-Means.
+- K-Means: apenas **treino**, rótulos ignorados no `fit`; scaler do treino supervisionado (sem `fit` no teste).
+- Métrica principal de busca: **F1 ponderado** (`f1_weighted`).
+
+---
+
+## d) Modelagem supervisionada
+
+Modelos obrigatórios: **KNN**, **Árvore de Decisão**, **RNA (MLPClassifier)**.
+
+- **KNN_padronizado**: hiperparâmetros `{'model__metric': 'euclidean', 'model__n_neighbors': 11, 'model__weights': 'distance'}`; F1 validação=0.842, F1 teste=0.784.
+- **Arvore_Decisao**: hiperparâmetros `{'ccp_alpha': 0.005, 'criterion': 'gini', 'max_depth': 5, 'min_samples_leaf': 1}`; F1 validação=0.821, F1 teste=0.760.
+- **MLP_RNA**: hiperparâmetros `{'model__activation': 'tanh', 'model__alpha': 0.0001, 'model__hidden_layer_sizes': (32, 16), 'model__learning_rate_init': 0.01}`; F1 validação=0.869, F1 teste=0.738.
+
+### Justificativa das escolhas
+
+- **KNN:** variação de `k`, pesos uniforme/distance e métricas euclidiana/manhattan; padronização via pipeline.
+- **Árvore:** critérios Gini/entropy, profundidade, `min_samples_leaf`, poda `ccp_alpha` — controle de complexidade e interpretabilidade.
+- **MLP:** arquiteturas pequenas (1–2 camadas), `relu`/`tanh`, L2 (`alpha`), `early_stopping` para reduzir overfitting.
+
+
+
+### Experimento complementar: KNN sem padronização
+
+O KNN padronizado (F1=0.784) superou o KNN sem padronização (F1=0.755, Δ=+0.029), confirmando que atributos em escalas heterogêneas afetam algoritmos baseados em distância.
+
+Este experimento não substitui o KNN obrigatório; ilustra o efeito da escala dos atributos.
+
+---
+
+## e) Modelagem não supervisionada (K-Means)
+
+- Escopo: conjunto de **treino** apenas.
+- Valores de K testados: [2, 3, 4, 5, 6, 7, 8, 9].
+- Escolha de K por **silhouette**: K=3 (silhouette=0.186).
+- Comparação com número de classes: K=2 (ARI=0.039, NMI=0.101).
+
+Figuras: `kmeans_elbow.png`, `kmeans_silhouette.png`, `kmeans_pca_clusters.png`.
+
+O K-Means foi ajustado apenas no conjunto de **treino** (treino), sem usar o conjunto de teste e sem utilizar rótulos no ajuste dos centróides. A escala dos atributos reutiliza o `StandardScaler` calibrado no treino supervisionado.
+
+Por **silhouette**, o melhor K foi **3** (silhouette=0.186, ARI=0.013, NMI=0.090). Para alinhar ao problema **binário** (duas classes), K=2 obteve silhouette=0.181, ARI=0.039, NMI=0.101.
+
+Embora K=3 maximize a separação geométrica (silhouette), **K=2 apresenta maior ARI** em relação aos rótulos reais, o que é esperado quando o objetivo supervisionado é binário.
+
+**Tabela cluster × classe (K por silhouette):**
+
+|   cluster |   NRB |   RB |
+|----------:|------:|-----:|
+|         0 |   210 |  181 |
+|         1 |   178 |   29 |
+|         2 |    30 |    2 |
+
+**Interpretação por cluster:**
+- Cluster 0: predominância de **NRB** (54% das 391 amostras).
+- Cluster 1: predominância de **NRB** (86% das 207 amostras).
+- Cluster 2: predominância de **NRB** (94% das 32 amostras).
+
+Conclusão parcial: a classificação supervisionada explora fronteiras mais complexas do que partições esféricas do K-Means; baixo ARI não invalida os modelos supervisionados, mas mostra que a estrutura não supervisionada é fraca ou não coincide com os rótulos oficiais.
+
+---
+
+## f) Resultados
+
+### Tabela comparativa (teste e validação)
+
+| modelo               |   f1_validacao |   accuracy |   precision |   recall |       f1 |   tempo_treino_s |   roc_auc |
+|:---------------------|---------------:|-----------:|------------:|---------:|---------:|-----------------:|----------:|
+| KNN_padronizado      |       0.842391 |   0.843602 |    0.731707 | 0.84507  | 0.784314 |         3.25882  |  0.91826  |
+| Arvore_Decisao       |       0.820508 |   0.829384 |    0.721519 | 0.802817 | 0.76     |         1.20847  |  0.875201 |
+| KNN_sem_padronizacao |       0.841179 |   0.824645 |    0.7125   | 0.802817 | 0.754967 |         0.235887 |  0.900252 |
+| MLP_RNA              |       0.868536 |   0.815166 |    0.705128 | 0.774648 | 0.738255 |         1.24327  |  0.884708 |
+
+### Métricas por classe (conjunto de teste)
+
+#### KNN_padronizado
+
+| Classe | Precision | Recall | F1 | Suporte |
+|--------|-----------|--------|-----|---------|
+| NRB | 0.915 | 0.843 | 0.877 | 140 |
+| RB | 0.732 | 0.845 | 0.784 | 71 |
+
+F1 validação (ponderado): 0.842 | F1 teste: 0.784 | Acurácia teste: 0.844
+
+Matriz de confusão: `results/figures/confusion_matrix_KNN_padronizado.png`
+Curva ROC: `results/figures/roc_curve_KNN_padronizado.png` (AUC=0.918)
+
+#### Arvore_Decisao
+
+| Classe | Precision | Recall | F1 | Suporte |
+|--------|-----------|--------|-----|---------|
+| NRB | 0.894 | 0.843 | 0.868 | 140 |
+| RB | 0.722 | 0.803 | 0.760 | 71 |
+
+F1 validação (ponderado): 0.821 | F1 teste: 0.760 | Acurácia teste: 0.829
+
+Matriz de confusão: `results/figures/confusion_matrix_Arvore_Decisao.png`
+Curva ROC: `results/figures/roc_curve_Arvore_Decisao.png` (AUC=0.875)
+
+#### MLP_RNA
+
+| Classe | Precision | Recall | F1 | Suporte |
+|--------|-----------|--------|-----|---------|
+| NRB | 0.880 | 0.836 | 0.857 | 140 |
+| RB | 0.705 | 0.775 | 0.738 | 71 |
+
+F1 validação (ponderado): 0.869 | F1 teste: 0.738 | Acurácia teste: 0.815
+
+Matriz de confusão: `results/figures/confusion_matrix_MLP_RNA.png`
+Curva ROC: `results/figures/roc_curve_MLP_RNA.png` (AUC=0.885)
+
+### Figuras de avaliação
+
+- Comparação de métricas: `results/figures/model_comparison_metrics.png`
+- Matrizes de confusão e ROC: `results/figures/confusion_matrix_*.png`, `roc_curve_*.png`
+- Árvore (profundidade limitada na figura): `results/figures/decision_tree.png`
+
+Variância explicada PCA (EDA): [0.18048658033105366, 0.12260365281672904].
+
+---
+
+## g) Análise crítica comparativa
+
+O melhor desempenho supervisionado no teste foi obtido por KNN_padronizado, com F1=0.784 e accuracy=0.844. O menor F1 pertenceu a MLP_RNA (0.738). No K-Means (treino), o melhor K por silhouette foi 3 (silhouette=0.186, ARI=0.013); com K=2 (número de classes), ARI=0.039.
+
+O KNN padronizado (F1=0.784) superou o KNN sem padronização (F1=0.755, Δ=+0.029), confirmando que atributos em escalas heterogêneas afetam algoritmos baseados em distância.
+
+**Síntese:** O melhor modelo supervisionado no teste foi **KNN_padronizado** (F1=0.784). A árvore oferece interpretabilidade por limiares; a MLP tem maior flexibilidade mas exigiu mais regularização; o KNN beneficiou-se da padronização. No não supervisionado, silhouette e ARI podem divergir (K ótimo geométrico ≠ alinhamento com RB/NRB), o que reforça que a fronteira de decisão supervisionada não coincide com clusters esféricos globais.
+
+**Limitações:** partição única treino/val/teste; descritores sem nomenclatura química no CSV; possível desbalanceamento afetando recall de RB; K-Means assume clusters convexos e de variância similar.
+
+---
+
+## h) Conclusão
+
+O trabalho cumpriu o protocolo de comparação entre KNN, árvore e RNA no problema de biodegradabilidade, com K-Means no mesmo conjunto de atributos (treino). As principais dificuldades foram interpretar baixo ARI no clustering e conciliar métricas globais com desbalanceamento moderado. Como evolução: validação cruzada aninhada, `class_weight`, seleção de atributos e análise química dos descritores mais relevantes na árvore.
+
+---
+
+## i) Referências
+
+1. Mansouri, K., et al. (2013). Quantitative structure–activity relationship models for ready biodegradability of chemicals. *Journal of Chemical Information and Modeling*, 53(4), 867–878.
+2. UCI Machine Learning Repository — datasets QSAR / biodegradation.
+3. Pedregosa, F., et al. (2011). Scikit-learn: Machine Learning in Python. *JMLR*, 12, 2825–2830.
+4. Documentação: [scikit-learn](https://scikit-learn.org/), [pandas](https://pandas.pydata.org/).
+
+---
+
+## Apêndice — Uso de IA generativa
+
+IA generativa foi utilizada como apoio para estruturar código, documentar parâmetros e redigir seções iniciais do relatório. O grupo revisou e compreende as decisões metodológicas.
+
+Prompts registrados em: [`docs/prompts_genai.md`](../docs/prompts_genai.md).
+
+---
+
+## Artefatos gerados
 
 - Figuras: `results/figures/`
 - Métricas: `results/metrics/`
-- Modelos: `results/models/`
-- Variância explicada PCA inicial: [0.1804865803310537, 0.122603652816729]
+- Modelos: `results/models/` (`.joblib`, `decision_tree.dot`)
