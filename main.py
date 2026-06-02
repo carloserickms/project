@@ -214,23 +214,6 @@ O trabalho cumpriu o protocolo de comparação entre KNN, árvore e RNA no probl
 
 ---
 
-## i) Referências
-
-1. Mansouri, K., et al. (2013). Quantitative structure–activity relationship models for ready biodegradability of chemicals. *Journal of Chemical Information and Modeling*, 53(4), 867–878.
-2. UCI Machine Learning Repository — datasets QSAR / biodegradation.
-3. Pedregosa, F., et al. (2011). Scikit-learn: Machine Learning in Python. *JMLR*, 12, 2825–2830.
-4. Documentação: [scikit-learn](https://scikit-learn.org/), [pandas](https://pandas.pydata.org/).
-
----
-
-## Apêndice — Uso de IA generativa
-
-IA generativa foi utilizada como apoio para estruturar código, documentar parâmetros e redigir seções iniciais do relatório. O grupo revisou e compreende as decisões metodológicas.
-
-Prompts registrados em: [`docs/prompts_genai.md`](../docs/prompts_genai.md).
-
----
-
 ## Artefatos gerados
 
 - Figuras: `results/figures/`
